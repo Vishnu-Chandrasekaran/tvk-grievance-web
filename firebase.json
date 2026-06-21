@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "target": "target-main",
+    "site": "tvk-grievance",
     "public": "dist",
     "ignore": [
       "firebase.json",
