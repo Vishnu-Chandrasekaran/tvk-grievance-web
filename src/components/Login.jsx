@@ -144,7 +144,7 @@ export default function OtpLogin({ setUser }) {
             </div>
             <button
               className="w-full bg-[#7B0200] text-white py-3 rounded-lg hover:bg-[#9b0704]"
-              onClick={() => alert(`the number you type is ${phone}`)}
+              onClick={() => alert(`the number you type is this ${phone}`)}
             >
               Send OTP
             </button>

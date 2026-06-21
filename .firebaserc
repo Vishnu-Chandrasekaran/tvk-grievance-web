@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "support-desk-7479b"
-  }
+  },
+  "targets": {
+    "support-desk-7479b": {
+      "hosting": {
+        "target-main": [
+          "test-tvk-grievance"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
