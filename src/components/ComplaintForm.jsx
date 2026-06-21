@@ -63,7 +63,7 @@ function RecenterMap({ center }) {
 async function reverseGeocode(lat, lng) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`,
     );
     const data = await res.json();
     return data?.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
@@ -123,7 +123,7 @@ const ComplaintForm = () => {
       (error) => {
         console.error(error);
         setLocating(false);
-      }
+      },
     );
   };
 
@@ -141,42 +141,47 @@ const ComplaintForm = () => {
   };
 
   const handleSubmit = async () => {
-    const uploadedFiles = [];
+    try {
+      const uploadedFiles = [];
 
-    for (let file of files) {
-      const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
+      for (let file of files) {
+        const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
 
-      uploadedFiles.push({
-        name: file.name,
-        url,
-        type: file.type,
+        await uploadBytes(fileRef, file);
+
+        // ONLY store path (this is correct architecture)
+        uploadedFiles.push({
+          name: file.name,
+          type: file.type,
+          path: fileRef.fullPath,
+        });
+      }
+
+      await addDoc(collection(db, "complaints"), {
+        description,
+        location: {
+          lat: Number(location.lat),
+          lng: Number(location.lng),
+          address,
+        },
+        files: uploadedFiles,
+        department: "IT Support",
+        createdAt: new Date(),
+        status: "pending",
       });
+
+      alert("Complaint submitted successfully");
+    } catch (err) {
+      console.error("Submit failed:", err);
     }
-
-    await addDoc(collection(db, "complaints"), {
-      description,
-      location: {
-        lat: Number(location.lat),
-        lng: Number(location.lng),
-        address,
-      },
-      files: uploadedFiles,
-      department: "IT Support", // later make dropdown
-      createdAt: new Date(),
-      status: "pending",
-    });
-
-    alert("Complaint submitted successfully");
   };
 
   return (
     <>
       <Header />
-      <div className="container mx-auto p-4 text-[#425867]">
+      <div className="mx-auto text-[#425867] ">
         {/* TITLE BAR */}
-        <div className="flex items-center mt-4 md:mt-8 bg-gradient-to-r from-[#780301] to-[#B10D07] text-white rounded-xl">
+        <div className="flex items-center bg-gradient-to-r from-[#780301] to-[#B10D07] text-white">
           <div className="p-4">
             <FaChevronLeft
               className="cursor-pointer"
@@ -188,6 +193,7 @@ const ComplaintForm = () => {
             <p className="font-medium text-xs">கண்காணிக்கக்கூடிய புகார்</p>
           </div>
         </div>
+        <div className="container mx-auto p-4">
 
         {/* TWO-PANEL LAYOUT
             Mobile: items stack in DOM order (fields -> map -> button).
@@ -330,8 +336,9 @@ const ComplaintForm = () => {
             onClick={handleSubmit}
             className="w-full bg-[#7a0e0e] text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#5e0a0a] transition md:col-start-1 md:row-start-2"
           >
-            <FaPaperPlane /> Send Mail
+            <FaPaperPlane /> Register Complaint
           </button>
+        </div>
         </div>
       </div>
     </>

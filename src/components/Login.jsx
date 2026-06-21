@@ -21,7 +21,7 @@ function mapAuthError(err) {
     case "auth/quota-exceeded":
       return "We've hit our SMS sending limit right now. Please try again in a little while.";
     case "auth/code-expired":
-      return "This OTP has expired. Tap \"Resend OTP\" to get a new one.";
+      return 'This OTP has expired. Tap "Resend OTP" to get a new one.';
     case "auth/invalid-verification-code":
       return "That OTP doesn't look right. Please check and try again.";
     case "auth/missing-verification-code":
@@ -59,39 +59,36 @@ export default function OtpLogin() {
     return () => clearInterval(id);
   }, [resendCooldown]);
 
-  // reCAPTCHA tokens are effectively single-use, so we tear down and
-  // recreate the verifier every time we're about to send an OTP — this
-  // is what makes "Resend OTP" reliable instead of silently failing on
-  // the second attempt.
-  const ensureFreshRecaptcha = async () => {
-    if (!auth) {
-      throw new Error("Authentication is not ready. Please refresh and try again.");
+  useEffect(() => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        auth,
+        "recaptcha-container",
+        { size: "invisible" },
+      );
+
+      window.recaptchaVerifier.render();
     }
-    if (auth._initializationPromise) {
-      try {
-        await auth._initializationPromise;
-      } catch {
-        // ignore — proceed and let signInWithPhoneNumber surface any real error
+
+    recaptchaRef.current = window.recaptchaVerifier;
+
+    return () => {
+      // only cleanup on FULL page exit (not edit number)
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
       }
-    }
-    if (recaptchaRef.current) {
-      try {
-        recaptchaRef.current.clear();
-      } catch (e) {
-        console.error("OtpLogin: failed clearing previous reCAPTCHA:", e);
-      }
-      recaptchaRef.current = null;
-    }
-    recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
-    });
-    await recaptchaRef.current.render();
-  };
+    };
+  }, []);
 
   // 📲 SEND OTP (also used for "Resend OTP")
   const sendOtp = async () => {
     setError("");
     setMessage("");
+    if (!recaptchaRef.current) {
+      setError("reCAPTCHA not ready. Refresh page.");
+      return;
+    }
     const digits = (phone || "").replace(/\D/g, "").replace(/^91/, "");
     if (!phone || digits.length !== 10) {
       setError("Please enter a valid 10-digit mobile number.");
@@ -99,10 +96,21 @@ export default function OtpLogin() {
     }
     try {
       setLoading(true);
-      await ensureFreshRecaptcha();
-      const appVerifier = recaptchaRef.current;
+      // await ensureFreshRecaptcha();
+      const appVerifier = recaptchaRef.current || window.recaptchaVerifier;
+      console.log("PHONE:", phone);
+      console.log("APP VERIFIER:", appVerifier);
+      console.log("AUTH:", auth);
+      console.log("RECAPTCHA TYPE:", appVerifier?.constructor?.name);
 
-      confirmationRef.current = await signInWithPhoneNumber(auth, phone, appVerifier);
+      if (!appVerifier) {
+        setError("reCAPTCHA not initialized. Refresh page.");
+        return;
+      }
+
+      const result = await signInWithPhoneNumber(auth, phone, appVerifier);
+
+      confirmationRef.current = result;
 
       setOtp("");
       setStep("otp");
@@ -179,7 +187,10 @@ export default function OtpLogin() {
                     let val = e.target.value || "";
                     val = val.replace(/\s+/g, "");
                     if (!val.startsWith("+91")) {
-                      const digits = val.replace(/^\+?91/, "").replace(/\D/g, "").slice(0, 10);
+                      const digits = val
+                        .replace(/^\+?91/, "")
+                        .replace(/\D/g, "")
+                        .slice(0, 10);
                       setPhone("+91" + digits);
                     } else {
                       const rest = val.slice(3).replace(/\D/g, "").slice(0, 10);
@@ -190,7 +201,10 @@ export default function OtpLogin() {
                     if (!phone || !phone.startsWith("+91")) setPhone("+91");
                   }}
                   onKeyDown={(e) => {
-                    if ((e.key === "Backspace" || e.key === "Delete") && e.currentTarget.selectionStart <= 3) {
+                    if (
+                      (e.key === "Backspace" || e.key === "Delete") &&
+                      e.currentTarget.selectionStart <= 3
+                    ) {
                       e.preventDefault();
                     }
                     onKeyDownPhone(e);
@@ -228,7 +242,9 @@ export default function OtpLogin() {
                     type="text"
                     placeholder="Enter OTP"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
                     onKeyDown={onKeyDownOtp}
                     className="w-full border rounded-lg pr-4 py-3 bg-[#F8ECEC] text-[#C89292] mb-3"
                   />
@@ -248,8 +264,8 @@ export default function OtpLogin() {
                     {loading
                       ? "Sending..."
                       : resendCooldown > 0
-                      ? `Resend OTP in ${resendCooldown}s`
-                      : "Resend OTP"}
+                        ? `Resend OTP in ${resendCooldown}s`
+                        : "Resend OTP"}
                   </button>
 
                   <button
@@ -260,6 +276,7 @@ export default function OtpLogin() {
                       setError("");
                       setMessage("");
                       setResendCooldown(0);
+                      confirmationRef.current = null;
                     }}
                   >
                     Edit Number
@@ -268,7 +285,8 @@ export default function OtpLogin() {
               )}
 
               <p className="text-[12px] text-[#A56B6B] mt-4 text-center font-medium leading-4">
-                We will send a one-time code to verify your number. Standard SMS rates may apply.
+                We will send a one-time code to verify your number. Standard SMS
+                rates may apply.
               </p>
             </div>
           </div>
