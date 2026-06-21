@@ -236,7 +236,7 @@ const ComplaintForm = () => {
           type: file.type,
           url, // always present — used for UI/pre// omitted entirely if too large
 
-          content: base64, // 🔥 REQUIRED for email attachment
+          // content: base64, // 🔥 REQUIRED for email attachment
         });
       }
 
