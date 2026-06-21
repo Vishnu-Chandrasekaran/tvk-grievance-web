@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "../firebase";
+import loginBanner from "../assets/bannerHero.jpeg";
 import logo from "../assets/TNLogo.png";
-import loginBanner from "../assets/HomeHero.png";
 import { MdLocalPhone } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import Header from "./Header";
@@ -166,11 +166,17 @@ export default function OtpLogin() {
           <img
             src={loginBanner}
             alt="Logo"
-            className="w-full h-auto rounded-2xl object-cover"
+            className="md:w-[87%] w-full h-auto rounded-2xl object-cover"
           />
-          <div className="w-full mt-6 md:absolute md:top-1/2 md:right-[-5%]  md:-translate-y-1/2 md:w-[320px] lg:w-[380px] xl:w-[420px]">
+          <div className="w-full mt-6 md:absolute md:top-1/2 md:right-[0%]  md:-translate-y-1/2 md:w-[320px] lg:w-[380px] xl:w-[420px]">
             <div className="bg-white rounded-2xl shadow-xl p-6 lg:p-8">
-              <h2 className="text-2xl font-bold mb-6">Login</h2>
+              {/* <h2 className="text-2xl font-bold mb-6">Login</h2> */}
+              <div className="flex justify-center mb-6">
+              <img src={logo} alt="Login" className="max-w-[105px] h-auto hidden md:block rounded-2xl object-cover" />
+
+              </div>
+
+
 
               <label className="block mb-2 text-gray-700">Mobile Number</label>
               <div className="relative mb-2">

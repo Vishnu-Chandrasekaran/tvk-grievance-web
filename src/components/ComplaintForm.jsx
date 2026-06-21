@@ -148,6 +148,14 @@ const ComplaintForm = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // const toBase64 = (file) =>
+  // new Promise((resolve, reject) => {
+  //   const reader = new FileReader();
+  //   reader.readAsDataURL(file);
+  //   reader.onload = () => resolve(reader.result.split(",")[1]);
+  //   reader.onerror = reject;
+  // });
+
   const toBase64 = (file) =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -186,10 +194,28 @@ const ComplaintForm = () => {
       for (let file of files) {
         const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
 
+
+        // // 1️⃣ upload to Firebase Storage
+        // await uploadBytes(fileRef, file);
+
         // 1️⃣ upload to Firebase Storage — this always happens, regardless
         // of whether the file is small enough to also email.
         await uploadBytes(fileRef, file);
         const url = await getDownloadURL(fileRef);
+
+//         // 2️⃣ get download URL (optional for preview)
+//   const url = await getDownloadURL(fileRef);
+
+//   // 3️⃣ convert file to base64 for SendGrid attachment
+//   const base64 = await toBase64(file);
+
+//   uploadedFiles.push({
+//     name: file.name,
+//     type: file.type,
+//     url,        // optional (UI use)
+//     content: base64 // 🔥 REQUIRED for email attachment
+//   });
+// }
 
         // 2️⃣ only base64-encode for the email/Firestore if it's under the
         // size cap — large files blow past Firestore's 1MiB document
