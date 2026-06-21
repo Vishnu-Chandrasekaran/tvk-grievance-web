@@ -4,11 +4,13 @@ import { auth } from "../firebase";
 import logo from "../assets/TNLogo.png";
 import loginBanner from "../assets/HomeHero.png";
 import { MdLocalPhone } from "react-icons/md";
+import { useNavigate } from "react-router-dom";
 
 export default function OtpLogin({ setUser }) {
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("+91");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState("phone"); // phone | otp
+  const [step, setStep] = useState("phone");
+  const navigate = useNavigate(); // phone | otp
 
   const [loading, setLoading] = useState(false);
   const [loadingVerify, setLoadingVerify] = useState(false);
@@ -18,78 +20,63 @@ export default function OtpLogin({ setUser }) {
   const recaptchaRef = useRef(null);
   const confirmationRef = useRef(null);
 
-  //   // ✅ Initialize reCAPTCHA ONLY ONCE
-  //   useEffect(() => {
-  //     if (!recaptchaRef.current) {
-  //       recaptchaRef.current = new RecaptchaVerifier(
-  //         auth,
-  //         "recaptcha-container",
-  //         {
-  //           size: "invisible"
-  //         }
-  //       );
+    // ✅ Initialize reCAPTCHA ONLY ONCE
+  useEffect(() => {
+    if (!recaptchaRef.current) {
+      recaptchaRef.current = new RecaptchaVerifier(
+        auth,
+        "recaptcha-container",
+        {
+          size: "invisible"
+        }
+      );
 
-  //       recaptchaRef.current.render();
-  //     }
-  //   }, []);
+      recaptchaRef.current.render();
+    }
+  }, []);
 
-  //   // 📲 SEND OTP
-  //   const sendOtp = async () => {
-  //     setError("");
-  //     setMessage("");
-  //     if (!phone) return setError("Please enter a valid phone number.");
-  //     try {
-  //       setLoading(true);
-  //       const appVerifier = recaptchaRef.current;
+  // 📲 SEND OTP
+  const sendOtp = async () => {
+    try {
+      if (!phone) return alert("Enter phone number");
 
-  //       confirmationRef.current = await signInWithPhoneNumber(
-  //         auth,
-  //         phone,
-  //         appVerifier
-  //       );
+      const appVerifier = recaptchaRef.current;
 
-  //       setStep("otp");
-  //       setMessage("OTP sent. Check your phone.");
-  //     } catch (err) {
-  //       console.error(err);
-  //       setError(err?.message || "Could not send OTP.");
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
+      confirmationRef.current = await signInWithPhoneNumber(
+        auth,
+        phone,
+        appVerifier
+      );
 
-  //   // 🔐 VERIFY OTP
-  //   const verifyOtp = async () => {
-  //     setError("");
-  //     setMessage("");
-  //     if (!otp) return setError("Enter the OTP sent to your phone.");
-  //     try {
-  //       setLoadingVerify(true);
-  //       const result = await confirmationRef.current.confirm(otp);
+      setStep("otp");
+      alert("OTP sent successfully!");
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  };
 
-  //       const user = result.user;
+  // 🔐 VERIFY OTP
+  const verifyOtp = async () => {
+    try {
+      if (!otp) return alert("Enter OTP");
 
-  //       setUser({
-  //         uid: user.uid,
-  //         phone: user.phoneNumber
-  //       });
+      const result = await confirmationRef.current.confirm(otp);
 
-  //       setMessage("Login successful!");
-  //     } catch (err) {
-  //       console.error(err);
-  //       setError("Invalid or expired OTP.");
-  //     } finally {
-  //       setLoadingVerify(false);
-  //     }
-  //   };
+      const user = result.user;
 
-  //   const onKeyDownPhone = (e) => {
-  //     if (e.key === "Enter") sendOtp();
-  //   };
+      setUser({
+        uid: user.uid,
+        phone: user.phoneNumber
+      });
+      navigate("/home");
 
-  //   const onKeyDownOtp = (e) => {
-  //     if (e.key === "Enter") verifyOtp();
-  //   };
+      alert(`Login successful! Welcome ${user.phoneNumber} ${user.uid}`);
+    } catch (err) {
+      console.error(err);
+      alert("Invalid OTP");
+    }
+  };
 
   return (
     <div className=" flex items-center justify-center md:p-4">
@@ -114,40 +101,66 @@ export default function OtpLogin({ setUser }) {
                 placeholder="Enter mobile number"
                 value={phone}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  // If user removes prefix, re-add it. Allow editing after prefix.
+                  let val = e.target.value || "";
+                  val = val.replace(/\s+/g, "");
                   if (!val.startsWith("+91")) {
-                    // If they cleared the field completely, keep just +91
-                    if (val === "" || val === "+") {
-                      setPhone("+91");
-                    } else {
-                      setPhone("+91" + val.replace(/^\+?91/, ""));
-                    }
+                    // strip any leading + or 91 and non-digits
+                    const digits = val.replace(/^\+?91/, "").replace(/\D/g, "").slice(0, 10);
+                    setPhone("+91" + digits);
                   } else {
-                    setPhone(val);
+                    const rest = val.slice(3).replace(/\D/g, "").slice(0, 10);
+                    setPhone("+91" + rest);
                   }
                 }}
                 onFocus={() => {
-                  if (!phone || !phone.startsWith("+91")) setPhone("+91 ");
+                  if (!phone || !phone.startsWith("+91")) setPhone("+91");
                 }}
                 onKeyDown={(e) => {
-                  // Prevent deleting the prefix with backspace when caret is at start
-                  if (
-                    (e.key === "Backspace" || e.key === "Delete") &&
-                    e.currentTarget.selectionStart <= 3
-                  ) {
+                  if ((e.key === "Backspace" || e.key === "Delete") && e.currentTarget.selectionStart <= 3) {
                     e.preventDefault();
                   }
                 }}
                 className="w-full border rounded-lg pl-14 pr-4 py-3 bg-[#F8ECEC] text-[#C89292]"
               />
             </div>
-            <button
-              className="w-full bg-[#7B0200] text-white py-3 rounded-lg hover:bg-[#9b0704]"
-              onClick={() => alert(`the number you type is this ${phone}`)}
-            >
-              Send OTP
-            </button>
+            {step === "phone" && (
+              <>
+                <div id="recaptcha-container" />
+                <button
+                  className="w-full bg-[#7B0200] text-white py-3 rounded-lg hover:bg-[#9b0704]"
+                  onClick={sendOtp}
+                  disabled={loading}
+                >
+                  {loading ? "Sending..." : "Send OTP"}
+                </button>
+              </>
+            )}
+
+            {step === "otp" && (
+              <div className="mt-4">
+                <input
+                  type="text"
+                  placeholder="Enter OTP"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  // onKeyDown={onKeyDownOtp}
+                  className="w-full border rounded-lg pr-4 py-3 bg-[#F8ECEC] text-[#C89292] mb-3"
+                />
+                <button
+                  className="w-full bg-[#7B0200] text-white py-3 rounded-lg hover:bg-[#9b0704] mb-2"
+                  onClick={verifyOtp}
+                  disabled={loadingVerify}
+                >
+                  {loadingVerify ? "Verifying..." : "Verify OTP"}
+                </button>
+                <button
+                  className="w-full bg-gray-200 text-[#7B0200] py-2 rounded-lg"
+                  onClick={() => setStep("phone")}
+                >
+                  Edit Number
+                </button>
+              </div>
+            )}
             <p className="text-[12px] text-[#A56B6B] mt-4 text-center font-medium leading-4">
               We will send a one-time code to verify your number. Standard SMS rates may apply.
             </p>
