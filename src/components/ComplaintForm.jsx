@@ -235,7 +235,7 @@ const ComplaintForm = () => {
           name: file.name,
           type: file.type,
           url, // always present — used for UI/pre// omitted entirely if too large
-
+          path: fileRef.fullPath,
           // content: base64, // 🔥 REQUIRED for email attachment
         });
       }
