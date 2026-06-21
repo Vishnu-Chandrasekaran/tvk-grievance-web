@@ -2,11 +2,10 @@ import React, { useEffect, useState } from "react";
 import Header from "./Header";
 import {
   FaChevronLeft,
-  FaImage,
-  FaVideo,
-  FaFileAlt,
   FaPaperPlane,
   FaLocationArrow,
+  FaCheckCircle,
+  FaExclamationCircle,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { db, storage } from "../firebase";
@@ -73,6 +72,12 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
+// Files larger than this aren't embedded in the email (base64 inflates
+// size ~33%, and Firestore caps a document at 1MiB) — they still upload
+// to Storage normally and keep their `url`, they just aren't attached
+// to the notification email.
+const MAX_EMAIL_ATTACHMENT_BYTES = 4 * 1024 * 1024; // 4MB
+
 const ComplaintForm = () => {
   const nav = useNavigate();
 
@@ -90,6 +95,9 @@ const ComplaintForm = () => {
   // raw coordinates.
   const [address, setAddress] = useState("");
   const [addressLoading, setAddressLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!location) return;
@@ -158,26 +166,50 @@ const ComplaintForm = () => {
       reader.readAsDataURL(file);
     });
   const handleSubmit = async () => {
+    if (submitting) return; // guards against double-tap firing two submissions
+
+    if (!description.trim()) {
+      setError("Please describe your complaint before submitting.");
+      setMessage("");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    setMessage("");
+
+    let skippedCount = 0;
+
     try {
       const uploadedFiles = [];
 
       for (let file of files) {
         const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
 
-        // 1️⃣ upload to Firebase Storage
+        // 1️⃣ upload to Firebase Storage — this always happens, regardless
+        // of whether the file is small enough to also email.
         await uploadBytes(fileRef, file);
-
-        // 2️⃣ get download URL (optional for preview)
         const url = await getDownloadURL(fileRef);
 
-        // 3️⃣ convert file to base64 for SendGrid attachment
-        const base64 = await toBase64(file);
+        // 2️⃣ only base64-encode for the email/Firestore if it's under the
+        // size cap — large files blow past Firestore's 1MiB document
+        // limit and SendGrid's attachment limits, and used to silently
+        // break the whole submission.
+        let base64;
+        if (file.size <= MAX_EMAIL_ATTACHMENT_BYTES) {
+          try {
+            base64 = await toBase64(file);
+          } catch (e) {
+            console.error("Could not read file for email attachment:", e);
+          }
+        } else {
+          skippedCount += 1;
+        }
 
         uploadedFiles.push({
           name: file.name,
           type: file.type,
-          url, // optional (UI use)
-          content: base64, // 🔥 REQUIRED for email attachment
+          url, // always present — used for UI/pre// omitted entirely if too large
         });
       }
 
@@ -194,9 +226,24 @@ const ComplaintForm = () => {
         status: "pending",
       });
 
-      alert("Complaint submitted successfully");
+      setMessage(
+        skippedCount > 0
+          ? `Complaint submitted successfully. Note: ${skippedCount} large file${
+              skippedCount > 1 ? "s" : ""
+            } were saved but not included in the notification email.`
+          : "Complaint submitted successfully."
+      );
+      setError("");
+      setDescription("");
+      setFiles([]);
     } catch (err) {
       console.error("Submit failed:", err);
+      setError(
+        "Failed to submit complaint. Please check your connection and try again."
+      );
+      setMessage("");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -243,15 +290,20 @@ const ComplaintForm = () => {
               />
 
               <textarea
-                className="w-full border border-gray-200 p-3 rounded-lg mb-6 text-sm"
+                className="w-full border border-gray-200 p-3 rounded-lg mb-6 text-sm disabled:bg-gray-50"
                 rows="5"
                 placeholder="enter your complaint"
                 value={description}
+                disabled={submitting}
                 onChange={(e) => setDescription(e.target.value)}
               />
 
               <h3 className="font-semibold mb-3">Attachments</h3>
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div
+                className={`grid grid-cols-3 gap-3 mb-4 ${
+                  submitting ? "opacity-50 pointer-events-none" : ""
+                }`}
+              >
                 <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border border-gray-200 rounded-lg py-5 hover:bg-gray-50 transition">
                   <MdOutlineImage className="text-[#780301]" />
                   <span className="text-sm">Image</span>
@@ -260,6 +312,7 @@ const ComplaintForm = () => {
                     accept="image/*"
                     hidden
                     multiple
+                    disabled={submitting}
                     onChange={handleFileChange}
                   />
                 </label>
@@ -272,6 +325,7 @@ const ComplaintForm = () => {
                     accept="video/*"
                     hidden
                     multiple
+                    disabled={submitting}
                     onChange={handleFileChange}
                   />
                 </label>
@@ -284,6 +338,7 @@ const ComplaintForm = () => {
                     accept=".pdf,.doc,.docx,.txt"
                     hidden
                     multiple
+                    disabled={submitting}
                     onChange={handleFileChange}
                   />
                 </label>
@@ -300,7 +355,8 @@ const ComplaintForm = () => {
                       <button
                         type="button"
                         onClick={() => removeFile(i)}
-                        className="text-gray-400 hover:text-red-700 ml-2"
+                        disabled={submitting}
+                        className="text-gray-400 hover:text-red-700 ml-2 disabled:opacity-50"
                         aria-label={`Remove ${f.name}`}
                       >
                         ×
@@ -353,16 +409,47 @@ const ComplaintForm = () => {
               </div>
             </div>
 
-            {/* SEND BUTTON — its own grid item so mobile order (fields, map,
-              button) can differ from desktop order (button sits under the
-              fields card, beside the map) */}
-            <button
-              type="button"
-              onClick={handleSubmit}
-              className="w-full bg-[#7a0e0e] text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#5e0a0a] transition md:col-start-1 md:row-start-2"
-            >
-              <FaPaperPlane /> Register Complaint
-            </button>
+            {/* STATUS + SEND BUTTON — one grid item, so placement stays
+                correct on both mobile (after the map) and desktop (under
+                the fields card, beside the map). */}
+            <div className="md:col-start-1 md:row-start-2">
+              {error && (
+                <div
+                  className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-3"
+                  role="alert"
+                >
+                  <FaExclamationCircle className="mt-0.5 flex-shrink-0" />
+                  <p className="text-sm">{error}</p>
+                </div>
+              )}
+              {!error && message && (
+                <div
+                  className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-3 mb-3"
+                  role="status"
+                >
+                  <FaCheckCircle className="mt-0.5 flex-shrink-0" />
+                  <p className="text-sm">{message}</p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full bg-[#7a0e0e] text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#5e0a0a] transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <>
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <FaPaperPlane /> Register Complaint
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
