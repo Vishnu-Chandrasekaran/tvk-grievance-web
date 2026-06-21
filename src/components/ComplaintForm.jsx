@@ -15,8 +15,13 @@ function LocationPicker({ setLocation }) {
 
   useMapEvents({
     click(e) {
-      setPosition(e.latlng);
-      setLocation(e.latlng);
+      const cleanLocation = {
+        lat: e.latlng.lat,
+        lng: e.latlng.lng,
+      };
+
+      setPosition(cleanLocation);
+      setLocation(cleanLocation);
     },
   });
 
@@ -27,6 +32,7 @@ const ComplaintForm = () => {
 
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState([]);
+  const [mapCenter, setMapCenter] = useState([11.0168, 76.9558]);
   const [location, setLocation] = useState({
   lat: 11.0168,
   lng: 76.9558,
@@ -35,10 +41,13 @@ const ComplaintForm = () => {
 useEffect(() => {
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      setLocation({
+      const userLoc = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
-      });
+      };
+
+      setLocation(userLoc);
+      setMapCenter([userLoc.lat, userLoc.lng]);
     },
     (error) => {
       console.error(error);
@@ -63,7 +72,10 @@ useEffect(() => {
 
   await addDoc(collection(db, "complaints"), {
     description,
-    location,
+    location: {
+      lat: Number(location.lat),
+      lng: Number(location.lng),
+    },
     files: uploadedFiles,
     department: "IT Support", // later make dropdown
     createdAt: new Date(),
@@ -103,7 +115,7 @@ useEffect(() => {
 
           <div className="h-64 mb-4">
             <MapContainer
-              center={[11.0168, 76.9558]} // default (change if needed)
+              center={mapCenter} // default (change if needed)
               zoom={13}
               style={{ height: "100%", width: "100%" }}
             >
