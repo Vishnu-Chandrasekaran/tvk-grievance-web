@@ -112,20 +112,42 @@ export default function OtpLogin({ setUser }) {
               <input
                 type="tel"
                 placeholder="Enter mobile number"
+                value={phone}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // If user removes prefix, re-add it. Allow editing after prefix.
+                  if (!val.startsWith("+91")) {
+                    // If they cleared the field completely, keep just +91
+                    if (val === "" || val === "+") {
+                      setPhone("+91");
+                    } else {
+                      setPhone("+91" + val.replace(/^\+?91/, ""));
+                    }
+                  } else {
+                    setPhone(val);
+                  }
+                }}
+                onFocus={() => {
+                  if (!phone || !phone.startsWith("+91")) setPhone("+91 ");
+                }}
+                onKeyDown={(e) => {
+                  // Prevent deleting the prefix with backspace when caret is at start
+                  if (
+                    (e.key === "Backspace" || e.key === "Delete") &&
+                    e.currentTarget.selectionStart <= 3
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
                 className="w-full border rounded-lg pl-14 pr-4 py-3 bg-[#F8ECEC] text-[#C89292]"
               />
             </div>
-
-            {/* <input
-              type="tel"
-              placeholder={<p><MdLocalPhone /> | Enter mobile number</p>}
-              className="w-full border rounded-lg px-4 py-3 mb-4 bg-[#F8ECEC] text-[#C89292]"
-            /> */}
-
-            <button className="w-full bg-[#7B0200] text-white py-3 rounded-lg hover:bg-[#9b0704]">
+            <button
+              className="w-full bg-[#7B0200] text-white py-3 rounded-lg hover:bg-[#9b0704]"
+              onClick={() => alert(`the number you type is ${phone}`)}
+            >
               Send OTP
             </button>
-
             <p className="text-[12px] text-[#A56B6B] mt-4 text-center font-medium leading-4">
               We will send a one-time code to verify your number. Standard SMS rates may apply.
             </p>
