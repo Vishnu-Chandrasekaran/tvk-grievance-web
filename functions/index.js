@@ -20,63 +20,63 @@ const departmentEmails = {
 exports.sendComplaintEmail = onDocumentCreated(
   "complaints/{id}",
 
-//   async (event) => {
-//     const data = event.data.data();
-//     const complaintId = event.params.id;
+  //   async (event) => {
+  //     const data = event.data.data();
+  //     const complaintId = event.params.id;
 
-//     // const attachments = (data.files || []).map((file) => ({
-//     //   content: file.content, // base64
-//     //   filename: file.name,
-//     //   type: file.type,
-//     //   disposition: "attachment",
-//     // }));
+  //     // const attachments = (data.files || []).map((file) => ({
+  //     //   content: file.content, // base64
+  //     //   filename: file.name,
+  //     //   type: file.type,
+  //     //   disposition: "attachment",
+  //     // }));
 
-//     // const msg = {
-//     //   to: "admin-tvkgrieve@yopmail.com",
-//     //   from: "vishnu-tvk-grieve@yopmail.com",
-//     //   subject: "🚨 New Complaint",
-//     //   html: `
-//     //     <h2>New Complaint</h2>
-//     //     <p>${data.description}</p>
-//     //     <p>${data.department}</p>
-//     //     <p>${data.location?.lat}, ${data.location?.lng}</p>
-//     //   `,
-//     //   attachments,
-//     // };
+  //     // const msg = {
+  //     //   to: "admin-tvkgrieve@yopmail.com",
+  //     //   from: "vishnu-tvk-grieve@yopmail.com",
+  //     //   subject: "🚨 New Complaint",
+  //     //   html: `
+  //     //     <h2>New Complaint</h2>
+  //     //     <p>${data.description}</p>
+  //     //     <p>${data.department}</p>
+  //     //     <p>${data.location?.lat}, ${data.location?.lng}</p>
+  //     //   `,
+  //     //   attachments,
+  //     // };
 
-//     const attachmentsRaw = await Promise.all(
-//       (data.files || []).map(async (file) => {
-//         try {
-//           if (!file?.path) return null;
+  //     const attachmentsRaw = await Promise.all(
+  //       (data.files || []).map(async (file) => {
+  //         try {
+  //           if (!file?.path) return null;
 
-//           const bucket = admin.storage().bucket();
+  //           const bucket = admin.storage().bucket();
 
-//           const [exists] = await bucket.file(file.path).exists();
-//           if (!exists) return null;
+  //           const [exists] = await bucket.file(file.path).exists();
+  //           if (!exists) return null;
 
-//           const [buffer] = await bucket.file(file.path).download();
+  //           const [buffer] = await bucket.file(file.path).download();
 
-//           if (!buffer || buffer.length === 0) return null;
+  //           if (!buffer || buffer.length === 0) return null;
 
-//           return {
-//             content: buffer.toString("base64"),
-//             filename: file.name || "file",
-//             type: file.type || "application/octet-stream",
-//             disposition: "attachment",
-//           };
-//         } catch (err) {
-//           console.error("Attachment build failed:", err);
-//           return null;
-//         }
-//       }),
-//     );
+  //           return {
+  //             content: buffer.toString("base64"),
+  //             filename: file.name || "file",
+  //             type: file.type || "application/octet-stream",
+  //             disposition: "attachment",
+  //           };
+  //         } catch (err) {
+  //           console.error("Attachment build failed:", err);
+  //           return null;
+  //         }
+  //       }),
+  //     );
 
-//     // 🔥 IMPORTANT: FINAL FILTER (this is what fixes your error)
-//     const attachments = attachmentsRaw.filter(
-//       (a) => a && typeof a.content === "string" && a.content.length > 0,
-//     );
+  //     // 🔥 IMPORTANT: FINAL FILTER (this is what fixes your error)
+  //     const attachments = attachmentsRaw.filter(
+  //       (a) => a && typeof a.content === "string" && a.content.length > 0,
+  //     );
 
-async (event) => {
+  async (event) => {
     try {
       const data = event.data.data();
       const bucket = admin.storage().bucket();
@@ -96,6 +96,19 @@ async (event) => {
 
           const base64 = fileBuffer[0].toString("base64");
 
+          const attachmentsHTML = (data.files || [])
+            .map((file) => {
+              return `
+                        <div style="margin-bottom:10px;">
+                            <p><b>${file.name}</b></p>
+                            <a href="${file.url}" target="_blank">
+                            📎 Open Attachment
+                            </a>
+                        </div>
+                        `;
+            })
+            .join("");
+
           attachments.push({
             content: base64,
             filename: file.name,
@@ -107,22 +120,36 @@ async (event) => {
         }
       }
 
+      const attachmentsHTML = (data.files || [])
+        .map((file) => {
+          const url = file.url || file.path;
 
-    const msg = {
-      to: "admin-tvkgrieve@yopmail.com",
-      from: "vishnu-tvk-grieve@yopmail.com",
-      subject: `🚨 New Complaint - # ${complaintId}`,
-      html: `
+          return `
+                <div style="margin-bottom:10px;">
+                    <p><b>${file.name}</b></p>
+                    <a href="${url}" target="_blank">📎 View File</a>
+                </div>
+                `;
+        })
+        .join("");
+
+      const msg = {
+        to: "admin-tvkgrieve@yopmail.com",
+        from: "vishnu-tvk-grieve@yopmail.com",
+        subject: `🚨 New Complaint - # ${complaintId}`,
+        html: `
         <h2>New Complaint</h2>
         <p><b>Complaint ID:</b> ${complaintId}</p>
         <p><b>Description:</b> ${data.description}</p>
         <p><b>Address:</b> ${data.location?.address}</p>
-        <p><b>Latitude:</b> ${data.location?.lat}, <b>Longitude:</b> ${data.location?.lng}</p>`,
-        attachments: attachments, // 🔥 SAFE ARRAY ONLY
-    };
+        <p><b>Latitude:</b> ${data.location?.lat}, <b>Longitude:</b> ${data.location?.lng}</p>
+        ${attachmentsHTML} `,
+        // attachments: attachments,
+        // 🔥 SAFE ARRAY ONLY
+      };
 
-    await sgMail.send(msg);
-    console.log("Email sent with attachments");
+      await sgMail.send(msg);
+      console.log("Email sent with attachments");
     } catch (err) {
       console.error("SendGrid Function Error:", err);
     }
