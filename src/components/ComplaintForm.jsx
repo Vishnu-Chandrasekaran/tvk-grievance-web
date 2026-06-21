@@ -141,36 +141,45 @@ const ComplaintForm = () => {
   };
 
   const toBase64 = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-  });
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
+      reader.onload = () => {
+        const result = reader.result;
+        if (!result) return reject("Empty file");
+
+        const base64 = result.split(",")[1];
+        if (!base64) return reject("Invalid base64");
+
+        resolve(base64);
+      };
+
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   const handleSubmit = async () => {
     try {
       const uploadedFiles = [];
 
       for (let file of files) {
-  const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
+        const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
 
-  // 1️⃣ upload to Firebase Storage
-  await uploadBytes(fileRef, file);
+        // 1️⃣ upload to Firebase Storage
+        await uploadBytes(fileRef, file);
 
-  // 2️⃣ get download URL (optional for preview)
-  const url = await getDownloadURL(fileRef);
+        // 2️⃣ get download URL (optional for preview)
+        const url = await getDownloadURL(fileRef);
 
-  // 3️⃣ convert file to base64 for SendGrid attachment
-  const base64 = await toBase64(file);
+        // 3️⃣ convert file to base64 for SendGrid attachment
+        const base64 = await toBase64(file);
 
-  uploadedFiles.push({
-    name: file.name,
-    type: file.type,
-    url,        // optional (UI use)
-    content: base64 // 🔥 REQUIRED for email attachment
-  });
-}
+        uploadedFiles.push({
+          name: file.name,
+          type: file.type,
+          url, // optional (UI use)
+          content: base64, // 🔥 REQUIRED for email attachment
+        });
+      }
 
       await addDoc(collection(db, "complaints"), {
         description,
@@ -209,151 +218,152 @@ const ComplaintForm = () => {
           </div>
         </div>
         <div className="container mx-auto p-4">
-
-        {/* TWO-PANEL LAYOUT
+          {/* TWO-PANEL LAYOUT
             Mobile: items stack in DOM order (fields -> map -> button).
             Desktop: explicit grid placement puts the button back under
             the fields card, with the map spanning the full right column. */}
-        <div className="grid gap-4 mt-4 md:grid-cols-2 md:grid-rows-[1fr_auto] items-stretch">
-          {/* LEFT: FORM CARD (fields only, button lives outside this card now) */}
-          <div className="bg-white shadow-md rounded-2xl p-6 md:col-start-1 md:row-start-1">
-            <h3 className="font-semibold mb-3">Describe Your Complaint</h3>
+          <div className="grid gap-4 mt-4 md:grid-cols-2 md:grid-rows-[1fr_auto] items-stretch">
+            {/* LEFT: FORM CARD (fields only, button lives outside this card now) */}
+            <div className="bg-white shadow-md rounded-2xl p-6 md:col-start-1 md:row-start-1">
+              <h3 className="font-semibold mb-3">Describe Your Complaint</h3>
 
-            <label
-              htmlFor="complaint-location"
-              className="text-xs font-medium text-gray-500 mb-1 block"
-            >
-              Selected Location
-            </label>
-            <input
-              id="complaint-location"
-              type="text"
-              readOnly
-              value={addressLoading ? "Detecting address..." : address}
-              placeholder="Tap a spot on the map to set a location"
-              className="w-full border border-gray-200 p-3 rounded-lg mb-4 text-sm text-gray-700 bg-gray-50"
-            />
-
-            <textarea
-              className="w-full border border-gray-200 p-3 rounded-lg mb-6 text-sm"
-              rows="5"
-              placeholder="enter your complaint"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-
-            <h3 className="font-semibold mb-3">Attachments</h3>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border border-gray-200 rounded-lg py-5 hover:bg-gray-50 transition">
-                <MdOutlineImage className="text-[#780301]" />
-                <span className="text-sm">Image</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  multiple
-                  onChange={handleFileChange}
-                />
-              </label>
-
-              <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border border-gray-200 rounded-lg py-5 hover:bg-gray-50 transition">
-                <IoVideocamOutline className="text-[#780301]" />
-                <span className="text-sm">Video</span>
-                <input
-                  type="file"
-                  accept="video/*"
-                  hidden
-                  multiple
-                  onChange={handleFileChange}
-                />
-              </label>
-
-              <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border border-gray-200 rounded-lg py-5 hover:bg-gray-50 transition">
-                <IoDocumentOutline className="text-[#780301]" />
-                <span className="text-sm">Document</span>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.txt"
-                  hidden
-                  multiple
-                  onChange={handleFileChange}
-                />
-              </label>
-            </div>
-
-            {files.length > 0 && (
-              <ul className="text-xs text-gray-600 mb-4 space-y-1">
-                {files.map((f, i) => (
-                  <li
-                    key={`${f.name}-${i}`}
-                    className="flex items-center justify-between bg-gray-50 px-3 py-1.5 rounded"
-                  >
-                    <span className="truncate">{f.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="text-gray-400 hover:text-red-700 ml-2"
-                      aria-label={`Remove ${f.name}`}
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* RIGHT: MAP CARD — spans both rows on desktop so it matches
-              the combined height of the fields card + button below it */}
-          <div className="bg-white shadow-md rounded-2xl p-2 relative min-h-[28rem] md:col-start-2 md:row-start-1 md:row-span-2">
-            <button
-              type="button"
-              onClick={handleUseMyLocation}
-              className="absolute top-4 right-4 z-[1000] bg-black/80 text-white text-xs px-3 py-2 rounded-full flex items-center gap-2 shadow hover:bg-black"
-            >
-              <FaLocationArrow />
-              {locating ? "Locating..." : "Use my current location"}
-            </button>
-
-            <div className="h-full rounded-xl overflow-hidden">
-              <MapContainer
-                center={mapCenter}
-                zoom={13}
-                style={{ height: "100%", width: "100%" }}
+              <label
+                htmlFor="complaint-location"
+                className="text-xs font-medium text-gray-500 mb-1 block"
               >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <RecenterMap center={mapCenter} />
-                <LocationPicker onPick={setLocation} />
+                Selected Location
+              </label>
+              <input
+                id="complaint-location"
+                type="text"
+                readOnly
+                value={addressLoading ? "Detecting address..." : address}
+                placeholder="Tap a spot on the map to set a location"
+                className="w-full border border-gray-200 p-3 rounded-lg mb-4 text-sm text-gray-700 bg-gray-50"
+              />
 
-                {location && <Marker position={[location.lat, location.lng]} />}
+              <textarea
+                className="w-full border border-gray-200 p-3 rounded-lg mb-6 text-sm"
+                rows="5"
+                placeholder="enter your complaint"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
 
-                {gpsLocation && (
-                  <CircleMarker
-                    center={[gpsLocation.lat, gpsLocation.lng]}
-                    radius={7}
-                    pathOptions={{
-                      color: "#1d4ed8",
-                      fillColor: "#3b82f6",
-                      fillOpacity: 1,
-                      weight: 2,
-                    }}
+              <h3 className="font-semibold mb-3">Attachments</h3>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border border-gray-200 rounded-lg py-5 hover:bg-gray-50 transition">
+                  <MdOutlineImage className="text-[#780301]" />
+                  <span className="text-sm">Image</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    multiple
+                    onChange={handleFileChange}
                   />
-                )}
-              </MapContainer>
-            </div>
-          </div>
+                </label>
 
-          {/* SEND BUTTON — its own grid item so mobile order (fields, map,
+                <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border border-gray-200 rounded-lg py-5 hover:bg-gray-50 transition">
+                  <IoVideocamOutline className="text-[#780301]" />
+                  <span className="text-sm">Video</span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    hidden
+                    multiple
+                    onChange={handleFileChange}
+                  />
+                </label>
+
+                <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border border-gray-200 rounded-lg py-5 hover:bg-gray-50 transition">
+                  <IoDocumentOutline className="text-[#780301]" />
+                  <span className="text-sm">Document</span>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    hidden
+                    multiple
+                    onChange={handleFileChange}
+                  />
+                </label>
+              </div>
+
+              {files.length > 0 && (
+                <ul className="text-xs text-gray-600 mb-4 space-y-1">
+                  {files.map((f, i) => (
+                    <li
+                      key={`${f.name}-${i}`}
+                      className="flex items-center justify-between bg-gray-50 px-3 py-1.5 rounded"
+                    >
+                      <span className="truncate">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="text-gray-400 hover:text-red-700 ml-2"
+                        aria-label={`Remove ${f.name}`}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* RIGHT: MAP CARD — spans both rows on desktop so it matches
+              the combined height of the fields card + button below it */}
+            <div className="bg-white shadow-md rounded-2xl p-2 relative min-h-[28rem] md:col-start-2 md:row-start-1 md:row-span-2">
+              <button
+                type="button"
+                onClick={handleUseMyLocation}
+                className="absolute top-4 right-4 z-[1000] bg-black/80 text-white text-xs px-3 py-2 rounded-full flex items-center gap-2 shadow hover:bg-black"
+              >
+                <FaLocationArrow />
+                {locating ? "Locating..." : "Use my current location"}
+              </button>
+
+              <div className="h-full rounded-xl overflow-hidden">
+                <MapContainer
+                  center={mapCenter}
+                  zoom={13}
+                  style={{ height: "100%", width: "100%" }}
+                >
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <RecenterMap center={mapCenter} />
+                  <LocationPicker onPick={setLocation} />
+
+                  {location && (
+                    <Marker position={[location.lat, location.lng]} />
+                  )}
+
+                  {gpsLocation && (
+                    <CircleMarker
+                      center={[gpsLocation.lat, gpsLocation.lng]}
+                      radius={7}
+                      pathOptions={{
+                        color: "#1d4ed8",
+                        fillColor: "#3b82f6",
+                        fillOpacity: 1,
+                        weight: 2,
+                      }}
+                    />
+                  )}
+                </MapContainer>
+              </div>
+            </div>
+
+            {/* SEND BUTTON — its own grid item so mobile order (fields, map,
               button) can differ from desktop order (button sits under the
               fields card, beside the map) */}
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="w-full bg-[#7a0e0e] text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#5e0a0a] transition md:col-start-1 md:row-start-2"
-          >
-            <FaPaperPlane /> Register Complaint
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="w-full bg-[#7a0e0e] text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#5e0a0a] transition md:col-start-1 md:row-start-2"
+            >
+              <FaPaperPlane /> Register Complaint
+            </button>
+          </div>
         </div>
       </div>
     </>
