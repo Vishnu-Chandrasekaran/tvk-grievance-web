@@ -76,11 +76,16 @@ exports.sendComplaintEmail = onDocumentCreated(
     );
 
     const msg = {
-      to: toEmail,
+      to: "admin-tvkgrieve@yopmail.com",
       from: "vishnu-tvk-grieve@yopmail.com",
       subject: "🚨 New Complaint - #${complaintId}",
-      html: `...`,
-      attachments: attachments, // 🔥 SAFE ARRAY ONLY
+      html: `
+        <h2>New Complaint</h2>
+        <p>${data.description}</p>
+        <p>${data.department}</p>
+        <p>${data.location?.lat}, ${data.location?.lng}</p>
+      `,
+      attachments, // 🔥 SAFE ARRAY ONLY
     };
 
     await sgMail.send(msg);
