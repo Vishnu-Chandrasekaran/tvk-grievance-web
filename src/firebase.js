@@ -14,10 +14,10 @@ const firebaseConfig = {
   storageBucket: "support-desk-7479b.firebasestorage.app",
   messagingSenderId: "116449296919",
   appId: "1:116449296919:web:7cdeed3e6743ba95545252",
-  measurementId: "G-25PX360BMW",
+  measurementId: "G-25PX360BMW"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 export const auth = getAuth(app);
+if (typeof window !== "undefined") window.__firebaseAuth = auth;

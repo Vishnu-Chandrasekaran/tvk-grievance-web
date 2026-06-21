@@ -20,67 +20,122 @@ export default function OtpLogin({ setUser }) {
   const recaptchaRef = useRef(null);
   const confirmationRef = useRef(null);
 
-    // ✅ Initialize reCAPTCHA ONLY ONCE
-  useEffect(() => {
-    if (!recaptchaRef.current) {
-      recaptchaRef.current = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        {
-          size: "invisible"
+   // ✅ Initialize reCAPTCHA ONLY ONCE
+    useEffect(() => {
+      let mounted = true;
+      const init = async () => {
+        if (!recaptchaRef.current) {
+          console.log("OtpLogin: auth value:", auth);
+          if (!auth) {
+            console.error("OtpLogin: firebase auth is undefined — skipping Recaptcha initialization");
+            return;
+          }
+          try {
+            // wait for internal auth initialization so settings are available
+            if (auth._initializationPromise) await auth._initializationPromise;
+            if (!mounted) return;
+            console.log("OtpLogin: auth ready, settings:", auth.settings);
+            // initialize into the ref and attach to the existing container
+            recaptchaRef.current = new RecaptchaVerifier(
+              auth,
+              "recaptcha-container",
+              {
+                size: "invisible",
+              }
+            );
+
+            await recaptchaRef.current.render();
+          } catch (e) {
+            console.error("OtpLogin: Recaptcha initialization failed:", e, "auth:", auth);
+          }
         }
-      );
+      };
 
-      recaptchaRef.current.render();
-    }
-  }, []);
+      init();
+      return () => {
+        mounted = false;
+      };
+    }, []);
 
-  // 📲 SEND OTP
-  const sendOtp = async () => {
-    try {
-      if (!phone) return alert("Enter phone number");
+    // 📲 SEND OTP
+    const sendOtp = async () => {
+      setError("");
+      setMessage("");
+      // ensure we have 10 digits after country code
+      const digits = (phone || "").replace(/\D/g, "").replace(/^91/, "");
+      if (!phone || digits.length !== 10) return setError("Please enter a valid 10-digit mobile number.");
+      try {
+        setLoading(true);
+        const appVerifier = recaptchaRef.current;
 
-      const appVerifier = recaptchaRef.current;
+        // diagnostic: get recaptcha token and expose for debugging
+        try {
+          const recaptchaToken = await appVerifier.verify();
+          console.log("OtpLogin: recaptcha token length:", recaptchaToken?.length);
+          if (typeof window !== "undefined") window.__lastRecaptcha = recaptchaToken;
+        } catch (e) {
+          console.error("OtpLogin: recaptcha verify failed:", e);
+          if (typeof window !== "undefined") window.__lastRecaptchaError = e?.toString();
+        }
 
-      confirmationRef.current = await signInWithPhoneNumber(
-        auth,
-        phone,
-        appVerifier
-      );
+        confirmationRef.current = await signInWithPhoneNumber(auth, phone, appVerifier);
 
-      setStep("otp");
-      alert("OTP sent successfully!");
-    } catch (err) {
-      console.error(err);
-      alert(err.message);
-    }
-  };
+        setStep("otp");
+        setMessage("OTP sent. Check your phone.");
+      } catch (err) {
+        console.error(err);
+        setError(err?.message || "Could not send OTP.");
+        if (typeof window !== "undefined") {
+          window.__lastSendOtpError = {
+            message: err?.message,
+            name: err?.name,
+            code: err?.code,
+            stack: err?.stack,
+            customData: err?.customData || null
+          };
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // 🔐 VERIFY OTP
-  const verifyOtp = async () => {
-    try {
-      if (!otp) return alert("Enter OTP");
+    // 🔐 VERIFY OTP
+    const verifyOtp = async () => {
+      setError("");
+      setMessage("");
+      if (!otp) return setError("Enter the OTP sent to your phone.");
+      try {
+        setLoadingVerify(true);
+        const result = await confirmationRef.current.confirm(otp);
 
-      const result = await confirmationRef.current.confirm(otp);
+        const user = result.user;
 
-      const user = result.user;
+        setUser({
+          uid: user.uid,
+          phone: user.phoneNumber
+        });
 
-      setUser({
-        uid: user.uid,
-        phone: user.phoneNumber
-      });
-      navigate("/home");
+        setMessage("Login successful!");
+      } catch (err) {
+        console.error(err);
+        setError("Invalid or expired OTP.");
+      } finally {
+        setLoadingVerify(false);
+      }
+    };
 
-      alert(`Login successful! Welcome ${user.phoneNumber} ${user.uid}`);
-    } catch (err) {
-      console.error(err);
-      alert("Invalid OTP");
-    }
-  };
+    const onKeyDownPhone = (e) => {
+      if (e.key === "Enter") sendOtp();
+    };
+
+    const onKeyDownOtp = (e) => {
+      if (e.key === "Enter") verifyOtp();
+    };
 
   return (
     <div className=" flex items-center justify-center md:p-4">
       <div className="relative w-full max-w-7xl mx-auto px-4">
+        <div id="recaptcha-container" className="hidden" />
         <img
           src={loginBanner}
           alt="Logo"
@@ -125,7 +180,6 @@ export default function OtpLogin({ setUser }) {
             </div>
             {step === "phone" && (
               <>
-                <div id="recaptcha-container" />
                 <button
                   className="w-full bg-[#7B0200] text-white py-3 rounded-lg hover:bg-[#9b0704]"
                   onClick={sendOtp}
