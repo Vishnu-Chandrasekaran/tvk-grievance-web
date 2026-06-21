@@ -140,22 +140,37 @@ const ComplaintForm = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const toBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+
   const handleSubmit = async () => {
     try {
       const uploadedFiles = [];
 
       for (let file of files) {
-        const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
+  const fileRef = ref(storage, `complaints/${uuid()}-${file.name}`);
 
-        await uploadBytes(fileRef, file);
+  // 1️⃣ upload to Firebase Storage
+  await uploadBytes(fileRef, file);
 
-        // ONLY store path (this is correct architecture)
-        uploadedFiles.push({
-          name: file.name,
-          type: file.type,
-          path: fileRef.fullPath,
-        });
-      }
+  // 2️⃣ get download URL (optional for preview)
+  const url = await getDownloadURL(fileRef);
+
+  // 3️⃣ convert file to base64 for SendGrid attachment
+  const base64 = await toBase64(file);
+
+  uploadedFiles.push({
+    name: file.name,
+    type: file.type,
+    url,        // optional (UI use)
+    content: base64 // 🔥 REQUIRED for email attachment
+  });
+}
 
       await addDoc(collection(db, "complaints"), {
         description,
