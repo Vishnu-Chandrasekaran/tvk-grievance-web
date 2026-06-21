@@ -26,9 +26,10 @@ exports.sendComplaintEmail = onDocumentCreated(
       const sgMail = require("@sendgrid/mail");
 
       // ⚠️ SET API KEY INSIDE FUNCTION (prevents startup crash)
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      sgMail.setApiKey(
+        "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",
+      );
       console.log(`📧 SENDING EMAIL NOW ${process.env.SENDGRID_API_KEY}`);
-
 
       const toEmail = "admin-tvkgrieve@yopmail.com";
 
@@ -37,11 +38,35 @@ exports.sendComplaintEmail = onDocumentCreated(
         from: "vishnu-tvk-grieve@yopmail.com",
         subject: "New Complaint Received",
         html: `
-          <h2>New Complaint</h2>
-          <p>${data.description}</p>
-          <p>${data.department}</p>
-          <p>${JSON.stringify(data.location)}</p>
-        `,
+          <h2>🚨 New Complaint Received</h2>
+
+            <p><b>Description:</b> ${data.description}</p>
+            <p><b>Department:</b> ${data.department}</p>
+
+            <p><b>Location:</b> 
+                ${data.location?.lat}, ${data.location?.lng}
+            </p>
+
+            <hr/>
+
+            <h3>📎 Attachments</h3>
+           ${
+             data.files && data.files.length > 0
+               ? data.files
+                   .map(
+                     (file) => `
+              <div style="margin-bottom:10px;">
+                <p><b>Name:</b> ${file.name}</p>
+                <p><b>Type:</b> ${file.type}</p>
+                <a href="${file.url}" target="_blank">
+                  🔗 View Attachment
+                </a>
+              </div>
+            `,
+                   )
+                   .join("")
+               : "<p>No attachments</p>"
+           } `,
       };
 
       await sgMail.send(msg);
@@ -50,5 +75,5 @@ exports.sendComplaintEmail = onDocumentCreated(
     } catch (err) {
       console.error("Function error:", err);
     }
-  }
+  },
 );

@@ -19,6 +19,7 @@
     "firebase-functions": "^7.0.0"
   },
   "devDependencies": {
+    "@iconify/react": "^6.0.2",
     "eslint": "^8.15.0",
     "eslint-config-google": "^0.14.0",
     "firebase-functions-test": "^3.4.1"
