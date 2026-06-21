@@ -5,6 +5,7 @@ import logo from "../assets/TNLogo.png";
 import loginBanner from "../assets/HomeHero.png";
 import { MdLocalPhone } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
+import Header from "./Header";
 
 export default function OtpLogin({ setUser }) {
   const [phone, setPhone] = useState("+91");
@@ -116,6 +117,7 @@ export default function OtpLogin({ setUser }) {
         });
 
         setMessage("Login successful!");
+        navigate("/home");
       } catch (err) {
         console.error(err);
         setError("Invalid or expired OTP.");
@@ -133,6 +135,8 @@ export default function OtpLogin({ setUser }) {
     };
 
   return (
+    <>
+    <Header />
     <div className=" flex items-center justify-center md:p-4">
       <div className="relative w-full max-w-7xl mx-auto px-4">
         <div id="recaptcha-container" className="hidden" />
@@ -222,5 +226,6 @@ export default function OtpLogin({ setUser }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
