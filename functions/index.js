@@ -27,7 +27,7 @@ exports.sendComplaintEmail = onDocumentCreated(
 
       // ⚠️ SET API KEY INSIDE FUNCTION (prevents startup crash)
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      console.log("📧 SENDING EMAIL NOW");
+      console.log(`📧 SENDING EMAIL NOW ${process.env.SENDGRID_API_KEY}`);
 
 
       const toEmail = "admin-tvkgrieve@yopmail.com";
