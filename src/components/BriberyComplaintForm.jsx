@@ -78,7 +78,7 @@ async function reverseGeocode(lat, lng) {
 // to the notification email.
 const MAX_EMAIL_ATTACHMENT_BYTES = 4 * 1024 * 1024; // 4MB
 
-const ComplaintForm = () => {
+const BriberyComplaintForm = () => {
   const nav = useNavigate();
 
   const [description, setDescription] = useState("");
@@ -240,7 +240,7 @@ const ComplaintForm = () => {
         });
       }
 
-      await addDoc(collection(db, "drug-complaints"), {
+      await addDoc(collection(db, "bribery-complaints"), {
         description,
         location: {
           lat: Number(location.lat),
@@ -251,7 +251,7 @@ const ComplaintForm = () => {
         department: "IT Support",
         createdAt: new Date(),
         status: "pending",
-        type: "drug-complaint", // Add this line to specify the complaint type
+        type: "bribery-complaint",
       });
 
       setMessage("Complaint submitted successfully.");
@@ -282,7 +282,7 @@ const ComplaintForm = () => {
             />
           </div>
           <div className="p-4">
-            <h2 className="text-md font-semibold">Drug Complaint</h2>
+            <h2 className="text-md font-semibold">Bribery Complaint</h2>
             <p className="font-medium text-xs">கண்காணிக்கக்கூடிய புகார்</p>
           </div>
         </div>
@@ -479,4 +479,4 @@ const ComplaintForm = () => {
   );
 };
 
-export default ComplaintForm;
+export default BriberyComplaintForm;

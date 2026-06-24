@@ -4,6 +4,7 @@ import Home from "./components/Home";
 import ProtectedRoute from "./ProtectedRoute";
 import ComplaintForm from "./components/ComplaintForm";
 import { AuthProvider } from "./components/AuthContext";
+import BriberyComplaintForm from "./components/BriberyComplaintForm";
 
 export default function App() {
   return (
@@ -24,6 +25,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ComplaintForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bribery-complaint"
+            element={
+              <ProtectedRoute>
+                <BriberyComplaintForm />
               </ProtectedRoute>
             }
           />

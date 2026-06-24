@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "../firebase";
 import loginBanner from "../assets/bannerHero.jpeg";
-import logo from "../assets/Bigil_Logo.png";
+import logo from "../assets/tvkLogo.svg";
 import { MdLocalPhone } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import Header from "./Header";
