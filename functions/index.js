@@ -1,7 +1,9 @@
 const admin = require("firebase-admin");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const sgMail = require("@sendgrid/mail");
+const { CloudBillingClient } = require('@google-cloud/billing');
 
 admin.initializeApp();
 setGlobalOptions({ region: "us-central1" });
@@ -16,6 +18,73 @@ const departmentEmails = {
   Finance: "finance-tvkgrieve@yopmail.com",
   Admin: "admin-tvkgrieve@yopmail.com",
 };
+const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT;
+const PROJECT_NAME = `projects/${PROJECT_ID}`;
+const billingClient = new CloudBillingClient();
+
+/**
+ * Pub/Sub-triggered Cloud Function to automatically stop billing.
+ */
+exports.stopBilling = onMessagePublished("billing-alerts-topic",  async (pubsubEvent) => {
+  const pubsubMessage = pubsubEvent.data.message;
+  // Decode the incoming Pub/Sub message payload
+  const pubsubData = JSON.parse(
+    Buffer.from(pubsubEvent.data, 'base64').toString()
+  );
+
+  console.log(`Current Cost: ${pubsubData.costAmount}, Budget Limit: ${pubsubData.budgetAmount}`);
+  console.log(`Message ${pubsubMessage}`);
+
+  // Only take action if the spending has actually met or exceeded the budget
+  if (pubsubData.costAmount < pubsubData.budgetAmount) {
+    console.log(`No action necessary. Spend is below the target.`);
+    return 'Spend is below budget.';
+  }
+
+  if (!PROJECT_ID) {
+    console.error('Error: GOOGLE_CLOUD_PROJECT environment variable is not defined.');
+    return 'No project specified.';
+  }
+
+  const isEnabled = await isBillingEnabled(PROJECT_NAME);
+  if (isEnabled) {
+    return await disableBillingForProject(PROJECT_NAME);
+  } else {
+    console.log('Billing is already disabled for this project.');
+    return 'Billing already disabled.';
+  }
+});
+
+/**
+ * Checks if billing is currently active on the project.
+ */
+async function isBillingEnabled(projectName) {
+  try {
+    const [res] = await billingClient.getProjectBillingInfo({ name: projectName });
+    return res.billingEnabled;
+  } catch (err) {
+    console.error('Unable to determine billing status, proceeding to disable:', err);
+    return true; // Assume active to proceed with safety shut-off
+  }
+}
+
+/**
+ * Detaches the billing account, triggering a project safety shut-off.
+ */
+async function disableBillingForProject(projectName) {
+  try {
+    const [res] = await billingClient.updateProjectBillingInfo({
+      name: projectName,
+      projectBillingInfo: { billingAccountName: '' } // Setting to empty string disables billing
+    });
+    console.log(`Billing successfully disabled: ${JSON.stringify(res)}`);
+    return `Billing disabled for ${projectName}`;
+  } catch (err) {
+    console.error(`Failed to disable billing:`, err);
+    throw err;
+  }
+}
+
 
 exports.sendComplaintEmail = onDocumentCreated(
   "complaints/{id}",
@@ -155,3 +224,7 @@ exports.sendComplaintEmail = onDocumentCreated(
     }
   },
 );
+
+
+
+
