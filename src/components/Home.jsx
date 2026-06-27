@@ -13,14 +13,9 @@ const Home = () => {
       <Header />
       <div>
         <img
-          src={mainHeroBanner}
-          alt="Logo"
-          className="w-full h-auto max-h-[280px]  object-cover md:hidden"
-        />
-        <img
           src={desktopBanner}
           alt="Logo"
-          className="w-[90%] mx-auto h-auto max-h-[300px] hidden md:block"
+          className="w-[90%] mx-auto h-auto max-h-[300px]"
         />
       </div>
       <div className="flex flex-col md:flex-row items-center justify-center mt-4 md:mt-8">
