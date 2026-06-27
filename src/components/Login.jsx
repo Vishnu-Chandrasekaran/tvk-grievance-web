@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "../firebase";
-import loginBanner from "../assets/logoMain.png";
+import loginBanner from "../assets/loginMainImage.png";
 import logo from "../assets/Bigil_Logo.png";
 import { MdLocalPhone } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
