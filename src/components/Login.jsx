@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "../firebase";
-import loginBanner from "../assets/bannerHero.jpeg";
-import logo from "../assets/tvkLogo.svg";
+import loginBanner from "../assets/logoMain.png";
+import logo from "../assets/Bigil_Logo.png";
 import { MdLocalPhone } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import Header from "./Header";
@@ -30,8 +30,13 @@ function mapAuthError(err) {
       return "Network error. Please check your connection and try again.";
     case "auth/captcha-check-failed":
       return "We couldn't verify you're not a robot. Please refresh the page and try again.";
-    default:
-      return err?.message || "Something went wrong. Please try again.";
+    default: {
+      const message = err?.message || "";
+      if (message.includes("Hostname match not found")) {
+        return "This domain is not authorized for Firebase phone verification. Please add the current site domain in Firebase Authentication settings and try again.";
+      }
+      return message || "Something went wrong. Please try again.";
+    }
   }
 }
 

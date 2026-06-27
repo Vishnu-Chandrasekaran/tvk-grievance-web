@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import logo from "../assets/tvkLogo.svg";
+import logo from "../assets/Bigil_Logo.png";
 import { GoGlobe } from "react-icons/go";
 import { FiUser, FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
